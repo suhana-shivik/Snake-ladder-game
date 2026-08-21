@@ -14,7 +14,7 @@ class Board {
   static final int LAST_CELL = 100;
 
   /// A snake maps its *head* cell (higher number) to its *tail* cell.
-  static const Map<int, int> SNAKES = {
+  static final Map<int, int> SNAKES = {
     2: 1,
     16: 6,
     22: 3,
@@ -31,7 +31,7 @@ class Board {
   };
 
   /// A ladder maps its *bottom* cell to its *top* cell.
-  static const Map<int, int> LADDERS = {
+  static final Map<int, int> LADDERS = {
     3: 22,
     7: 15,
     8: 31,
