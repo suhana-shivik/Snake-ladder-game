@@ -1,0 +1,5 @@
+name: snake_ladder_game
+description: Snake and Ladder board game Flutter frontend.
+version: 1.0.0
+environment:
+  sdk: "3.3.0"
