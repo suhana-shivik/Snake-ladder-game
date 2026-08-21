@@ -1,13 +1,13 @@
 {
   "name": "snake_ladder_backend",
   "description": "NestJS (on Express) backend for the Snake & Ladder game, with Redis state storage.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "entrypoint": "src/main.ts",
   "dependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/platform-express": "^10.0.0",
-    "redis": "^4.0.0"
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "redis": "^5.0.0"
   }
 }

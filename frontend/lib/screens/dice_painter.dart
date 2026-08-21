@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:random';
 import 'dart:ui';
 import 'flutter';
 import 'flutter/widget';
@@ -7,51 +6,28 @@ import '../game/dice.dart';
 
 /// Paints a 3D-looking dice showing pips (dots), not a plain number.
 ///
-/// During the rolling animation the UI calls [setRoll], then [advanceFrame]
-/// a few times so the painted face visibly spins before settling on the
-/// result.
-class DicePainter extends CustomPainter {
+/// During the rolling animation the owning screen asks the painter to show a
+/// specific face (via [show]) once per spinning frame — the frame cadence and
+/// settling are owned by `AnimationController`, so the painter stays a
+/// stateless renderer and never advances its own timeline.
+class DicePainter extends Painter {
   DicePainter() {
     _size = FlSize(120, 120);
-    _frames = <int>[Dice.ONE];
-    _frame = 0;
   }
 
   late FlSize _size;
-
-  /// A short list of faces used for the rolling animation.
-  List<int> _frames;
-  int _frame;
-  final Random _random = Random();
+  int _value = Dice.ONE;
 
   /// Force a repaint of the dice.
   void refresh() {}
 
-  /// Show a specific face (e.g. the settled roll result).
+  /// Show a specific face (a spin frame while rolling, or the settled roll).
   void show(int value) {
-    _frames = <int>[value];
-    _frame = 0;
+    _value = value;
     refresh();
   }
 
-  /// Stage a spinning face sequence that ends on the actual roll result.
-  void setRoll(int result) {
-    final faces = <int>[];
-    for (int i = 0; i < 8; i++) {
-      faces.add(1 + _random.nextInt(Dice.FACES));
-    }
-    faces.add(result);
-    _frames = faces;
-    _frame = 0;
-  }
-
-  int get visible => _frames[_frame % _frames.length];
-
-  /// Advances to the next frame of the spin (called each ~55ms while rolling).
-  void advanceFrame() {
-    _frame++;
-    refresh();
-  }
+  int get visible => _value;
 
   /// Pip layout for each face 1..6 as fractional [x, y] within the die body.
   static List<(double, double)> pipLayout(int face) {
