@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snakes &amp; Ladders</title>
+<style>
+  :root{ --accent:#2b7ec9; }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#f7f3ea;
+    font-family:Georgia,'Times New Roman',serif;
+    color:#3a3326;
+    display:flex; align-items:flex-start; justify-content:center;
+    min-height:100vh;
+  }
+  #app{ max-width:920px; padding:16px 20px; }
+  h1{
+    text-align:center; font-size:30px; letter-spacing:1px;
+    color:#5b4a2f; border-bottom:2px solid #d8c9ae; padding-bottom:6px;
+  }
+  #players{ display:flex; justify-content:center; gap:30px; margin:10px 0 6px; }
+  .player{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:6px 18px; border-radius:24px;
+    border:2px solid #b9ad90; background:#f2ecdb;
+    font-weight:bold; font-size:16px;
+  }
+  .player .swatch{
+    width:16px;height:16px;border-radius:50%;
+    display:inline-block; border:2px solid rgba(0,0,0,.25);
+  }
+  .player.active{ border-color:var(--accent); box-shadow:0 0 0 4px rgba(43,122,201,.3); }
+  #boardWrap{ text-align:center; }
+  #board{ display:block; width:100%; max-width:720px; margin:0 auto; }
+  #controls{ display:flex; align-items:center; justify-content:center; gap:18px; margin-top:8px; }
+  #dice{ width:74px;height:74px; }
+  #rollBtn{
+    font-size:18px; font-weight:bold; padding:14px 34px; border-radius:10px;
+    border:none; background:var(--accent); color:#fff; cursor:pointer;
+    box-shadow:0 4px 10px rgba(43,122,201,.3); transition:transform .15s;
+  }
+  #rollBtn:disabled{ background:#afb9ad; color:#555; cursor:not-allowed; box-shadow:none; }
+  #rollBtn:hover:not(:disabled){ transform:translateY(-2px); }
+  #status{ font-size:15px; color:#5b4a2f; text-align:center; margin-top:6px; }
+  #winnerBanner{
+    display:none; position:fixed; left:50%; top:16%;
+    transform:translate(-50%,0); background:#fff8e1;
+    border:3px solid #e0b23e; border-radius:18px;
+    padding:26px 44px; box-shadow:0 10px 30px rgba(0,0,0,.25);
+    z-index:50; text-align:center;
+  }
+  #winnerBanner h2{ color:#7a5319; font-size:26px; }
+  #newGameBtn{
+    font-size:17px; font-weight:bold; padding:12px 30px; border:none;
+    border-radius:10px; background:#e0a032; color:#fff; cursor:pointer;
+  }
+  .rolling{ animation:shake .42s ease-in-out infinite; }
+  @keyframes shake{
+    0%{transform:rotate(0deg)}
+    25%{transform:translateX(-4px) translateY(-3px) rotate(-8deg)}
+    50%{transform:translateX(3px) translateY(2px) rotate(6deg)}
+    75%{transform:translateX(-2px) translateY(3px) rotate(-5deg)}
+    100%{transform:rotate(2deg)}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🐍 Snakes &amp; Ladders</h1>
+  <div id="players">
+    <div class="player" id="pbox0"><span class="swatch" style="background:#d94b30"></span>Red</div>
+    <div class="player" id="pbox1"><span class="swatch" style="background:#2b7ed4"></span>Blue</div>
+  </div>
+  <div id="boardWrap"><svg id="board" viewBox="0 0 1000 1000"></svg></div>
+  <div id="controls">
+    <div id="dice"></div>
+    <button id="rollBtn">Roll</button>
+  </div>
+  <div id="status">Roll to begin. Red starts!</div>
+</div>
+
+<div id="winnerBanner">
+  <div style="font-size:44px">🎉</div>
+  <h2 id="winnerMsg">Player wins!</h2>
+  <button id="newGameBtn">New Game</button>
+</div>
+
+<script>
+"use strict";
+/* ================= geometry ================= */
+const M=50, CELL=90, BOARD=CELL*10;
+
+function cellCenter(n){
+  if(n<=0) return {x:M-26, y:M+BOARD-CELL/2};   // start zone just outside the board
+  const idx=n-1;
+  const row=Math.floor(idx/10);
+  const col=idx%10;
+  const xPos=(row%2===0)?col:(9-col);           // boustrophedon layout
+  return {
+    x:M+xPos*CELL+CELL/2,
+    y:M+(9-row)*CELL+CELL/2
+  };
+}
+
+function cubicPoint(p0,c1,c2,p3,t){
+  const it=1-t;
+  const a=it*it*it, b=3*it*it*t, c=3*it*t*t, d=t*t*t;
+  return {x:a*p0.x+b*c1.x+c*c2.x+d*p3.x, y:a*p0.y+b*c1.y+c*c2.y+d*p3.y};
+}
+
+function linePts(a,b,n){
+  const pts=[];
+  for(let i=0;i<=n;i++) pts.push({x:a.x+(b.x-a.x)*i/n, y:a.y+(b.y-a.y)*i/n});
+  return pts;
+}
+
+/* ================= game data ================= */
+const snakes=[
+  {top:16,bottom:6},
+  {top:49,bottom:11},
+  {top:62,bottom:19},
+  {top:89,bottom:68},
+  {top:99,bottom:80}
+];
+const snakeColors=['#2e9b57','#b8860b','#7a5fd0','#e34f3f','#2b7ec9'];
+const snakePts={};
+
+const ladders=[
+  {b:2,t:38},{b:8,t:31},{b:28,t:84},{b:51,t:67},{b:78,t:91}
+];
+const ladderMap={};
+ladders.forEach(l=>ladderMap[l.b]=l);
+
+/* ================= build the board ================= */
+const svg=document.getElementById('board');
+let s='';
+
+// 100 cells
+for(let n=1;n<=100;n++){
+  const idx=n-1;
+  const row=Math.floor(idx/10);
+  const col=idx%10;
+  const xPos=(row%2===0)?col:9-col;
+  const rx=M+xPos*CELL, ry=M+(9-row)*CELL;
+  const color=((xPos+row)%2===0)?'#faf1dd':'#f1e3c0';
+  s+='<rect x="'+rx+'" y="'+ry+'" width="'+CELL+'" height="'+CELL+'" fill="'+color+'" stroke="#d8c9ae" stroke-width="1"/>';
+  s+='<text x="'+(rx+8)+'" y="'+(ry+22)+'" font-size="15" fill="#8a7c5d">'+n+'</text>';
+}
+// frame
+s+='<rect x="'+(M-6)+'" y="'+(M-6)+'" width="'+(BOARD+12)+'" height="'+(BOARD+12)+'" fill="none" stroke="#a58e68" stroke-width="5" rx="4"/>';
+
+// ladders (two rails + rungs)
+const LCOLOR='#7a4a21';
+for(const l of ladders){
+  const B=cellCenter(l.b), T=cellCenter(l.t);
+  const dx=T.x-B.x, dy=T.y-B.y;
+  const len=Math.hypot(dx,dy);
+  const ux=dx/len, uy=dy/len;
+  const ox=-uy, oy=ux, off=8;
+  const ax=B.x+ox*off, ay=B.y+oy*off, bx=T.x+ox*off, by=T.y+oy*off;
+  const cx2=B.x-ox*off, cy2=B.y-oy*off, dx2=T.x-ox*off, dy2=T.y-oy*off;
+  s+='<line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="'+LCOLOR+'" stroke-width="6" stroke-linecap="round"/>';
+  s+='<line x1="'+cx2+'" y1="'+cy2+'" x2="'+dx2+'" y2="'+dy2+'" stroke="'+LCOLOR+'" stroke-width="6" stroke-linecap="round"/>';
+  const nRungs=Math.min(6,Math.max(2,Math.floor(len/55)));
+  for(let i=1;i<nRungs;i++){
+    const f=i/nRungs;
+    const r1x=ax+(bx-ax)*f, r1y=ay+(by-ay)*f;
+    const r2x=cx2+(dx2-cx2)*f, r2y=cy2+(dy2-cy2)*f;
+    s+='<line x1="'+r1x+'" y1="'+r1y+'" x2="'+r2x+'" y2="'+r2y+'" stroke="'+LCOLOR+'" stroke-width="5" stroke-linecap="round"/>';
+  }
+}
+
+// snakes (curved bezier bodies with head at the top cell)
+for(let i=0;i<snakes.length;i++){
+  const sn=snakes[i];
+  const color=snakeColors[i];
+  const h=cellCenter(sn.top), t=cellCenter(sn.bottom);
+  const dx=h.x-t.x, dy=h.y-t.y;
+  const len=Math.hypot(dx,dy);
+  const edgeX=dx/len, edgeY=dy/len;
+  const nx=-edgeY, ny=edgeX;
+  const amp=Math.max(12,len*0.2);
+  const mx=(t.x+h.x)/2, my=(t.y+h.y)/2;
+  const c1={x:mx-nx*amp, y:my-ny*amp};
+  const c2={x:mx+nx*amp, y:my+ny*amp};
+  const pathD='M '+t.x+' '+t.y+' C '+c1.x+' '+c1.y+' '+c2.x+' '+c2.y+' '+h.x+' '+h.y;
+
+  const pts=[];
+  for(let k=0;k<=40;k++) pts.push(cubicPoint(t,c1,c2,h,k/40));
+  snakePts[sn.top]=pts;
+
+  s+='<path d="'+pathD+'" fill="none" stroke="rgba(30,25,20,0.45)" stroke-width="17" stroke-linecap="round"/>';
+  s+='<path d="'+pathD+'" fill="none" stroke="'+color+'" stroke-width="12" stroke-linecap="round"/>';
+
+  const ang=Math.atan2(dy,dx);
+  const ux=Math.cos(ang), uy=Math.sin(ang);
+  const ex=-uy, ey=ux;
+  s+='<circle cx="'+h.x+'" cy="'+h.y+'" r="17" fill="'+color+'" stroke="#3a2b1d" stroke-width="2"/>';
+  s+='<circle cx="'+(h.x+ux*8+ex*6)+'" cy="'+(h.y+uy*8+ey*6)+'" r="3.4" fill="#fff"/>';
+  s+='<circle cx="'+(h.x+ux*8-ex*6)+'" cy="'+(h.y+uy*8-ey*6)+'" r="3.4" fill="#fff"/>';
+  s+='<circle cx="'+(h.x+ux*8+ex*6)+'" cy="'+(h.y+uy*8+ey*6)+'" r="1.6" fill="#111"/>';
+  s+='<circle cx="'+(h.x+ux*8-ex*6)+'" cy="'+(h.y+uy*8-ey*6)+'" r="1.6" fill="#111"/>';
+  const tx=h.x+ux*20, ty=h.y+uy*20;
+  s+='<line x1="'+h.x+'" y1="'+h.y+'" x2="'+tx+'" y2="'+ty+'" stroke="#c0392b" stroke-width="2.5"/>';
+  s+='<line x1="'+tx+'" y1="'+ty+'" x2="'+(tx+ux*6+ex*3)+'" y2="'+(ty+uy*6+ey*3)+'" stroke="#c0392b" stroke-width="2"/>';
+  s+='<line x1="'+tx+'" y1="'+ty+'" x2="'+(tx+ux*6-ex*3)+'" y2="'+(ty+uy*6-ey*3)+'" stroke="#c0392b" stroke-width="2"/>';
+}
+
+svg.innerHTML=s;
+
+// player tokens (on top of everything)
+const NS='http://www.w3.org/2000/svg';
+function makeToken(color){
+  const c=document.createElementNS(NS,'circle');
+  c.setAttribute('r','16'); c.setAttribute('fill',color);
+  c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','3');
+  svg.appendChild(c);
+  return c;
+}
+const tokenEls=[makeToken('#d94b30'), makeToken('#2b7ed4')];
+
+/* ================= dice ================= */
+const diceBox=document.getElementById('dice');
+const PP=[22,50,78];
+const PIP={
+  1:[[1,1]],
+  2:[[0,2],[2,0]],
+  3:[[0,2],[1,1],[2,0]],
+  4:[[0,0],[0,2],[2,0],[2,2]],
+  5:[[0,0],[0,2],[1,1],[2,0],[2,2]],
+  6:[[0,0],[0,2],[1,0],[1,2],[2,0],[2,2]]
+};
+function pipPositions(n){
+  const arr=PIP[n]||PIP[1];
+  return arr.map(c=>({x:PP[c[0]], y:PP[c[1]]}));
+}
+function renderDice(n){
+  let d='<svg width="74" height="74" viewBox="0 0 100 100">';
+  d+='<rect x="4" y="4" width="92" height="92" rx="18" fill="#fffdf6" stroke="#c8b392" stroke-width="3"/>';
+  d+='<rect x="10" y="10" width="80" height="80" rx="14" fill="none" stroke="#e5dcc2" stroke-width="1.5"/>';
+  for(const pt of pipPositions(n)){
+    d+='<circle cx="'+pt.x+'" cy="'+pt.y+'" r="12" fill="#5b4a30"/>';
+  }
+  d+='</svg>';
+  diceBox.innerHTML=d;
+}
+
+/* ================= game state ================= */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const players=['Red','Blue'];
+const name=i=>players[i];
+let pos=[0,0];
+let active=0;
+let running=false;
+
+const rollBtn=document.getElementById('rollBtn');
+const statusEl=document.getElementById('status');
+const banner=document.getElementById('winnerBanner');
+const pBoxes=[document.getElementById('pbox0'),document.getElementById('pbox1')];
+
+function setStatus(m){ statusEl.textContent=m; }
+function updateActiveUI(){
+  pBoxes[0].classList.toggle('active',active===0);
+  pBoxes[1].classList.toggle('active',active===1);
+}
+function setToken(p,x,y){
+  const el=tokenEls[p];
+  el.setAttribute('cx',x);
+  el.setAttribute('cy',y);
+}
+function placeTokens(){
+  const c0=cellCenter(pos[0]), c1=cellCenter(pos[1]);
+  if(pos[0]===pos[1] && pos[0]>0){
+    setToken(0,c0.x-24,c0.y);
+    setToken(1,c0.x+24,c0.y);
+  }else{
+    setToken(0,c0.x,c0.y);
+    setToken(1,c1.x,c1.y);
+  }
+}
+
+function showWinner(n){
+  document.getElementById('winnerMsg').innerHTML=n+' wins! 🏆';
+  banner.style.display='block';
+}
+
+async function rollDiceUI(){
+  const result=1+Math.floor(Math.random()*6);
+  diceBox.classList.add('rolling');
+  for(let i=0;i<12;i++){
+    renderDice(1+Math.floor(Math.random()*6));
+    await sleep(50);
+  }
+  diceBox.classList.remove('rolling');
+  renderDice(result);
+  await sleep(120);
+  return result;
+}
+
+async function hopTo(player,cell){
+  const c=cellCenter(cell);
+  const el=tokenEls[player];
+  el.setAttribute('cx',c.x);
+  el.setAttribute('cy',c.y);
+  await sleep(150);
+}
+
+async function slideToken(player,pts,dur){
+  const el=tokenEls[player];
+  const steps=Math.max(1,Math.round(dur/18));
+  for(let i=1;i<=steps;i++){
+    const f=i/steps;
+    const p=pts[Math.min(pts.length-1,Math.floor(f*(pts.length-1)))];
+    el.setAttribute('cx',p.x);
+    el.setAttribute('cy',p.y);
+    await sleep(18);
+  }
+}
+
+async function takeTurn(){
+  if(running) return;
+  running=true;
+  rollBtn.disabled=true;
+
+  const player=active;
+  const roll=await rollDiceUI();
+  const cur=pos[player];
+  const target=cur+roll;
+
+  if(target>100){
+    setStatus(name(player)+' rolled '+roll+' — overshoots, turn passes ⛔');
+    await sleep(700);
+  }else{
+    // move cell by cell
+    for(let c=cur+1;c<=target;c++) await hopTo(player,c);
+
+    let landing=target;
+    setStatus(name(player)+' reached '+landing);
+
+    const L=ladderMap[landing];
+    const S=snakes.find(sn=>sn.top===landing);
+    if(L){
+      await sleep(400);
+      setStatus(name(player)+' climbs the ladder! 🪜');
+      await slideToken(player,linePts(cellCenter(L.b),cellCenter(L.t),34),1000);
+      landing=L.t;
+    }else if(S){
+      await sleep(400);
+      setStatus(name(player)+' slides down the snake! 🐍');
+      await slideToken(player,snakePts[S.top].slice().reverse(),1000);
+      landing=S.bottom;
+    }
+    pos[player]=landing;
+
+    if(landing===100){
+      placeTokens();
+      showWinner(name(player));
+      running=false;
+      return;
+    }
+  }
+
+  active=1-active;
+  updateActiveUI();
+  placeTokens();
+  setStatus(name(active)+"'s turn — roll the dice!");
+  running=false;
+  rollBtn.disabled=false;
+}
+
+function newGame(){
+  pos=[0,0];
+  active=0;
+  running=false;
+  renderDice(1);
+  placeTokens();
+  rollBtn.disabled=false;
+  banner.style.display='none';
+  updateActiveUI();
+  setStatus(name(active)+"'s turn — roll the dice!");
+}
+
+rollBtn.addEventListener('click',takeTurn);
+document.getElementById('newGameBtn').addEventListener('click',newGame);
+
+/* initial state */
+renderDice(1);
+placeTokens();
+updateActiveUI();
+setStatus(name(active)+"'s turn — roll the dice!");
+</script>
+</body>
+</html>
