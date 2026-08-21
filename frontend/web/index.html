@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake &amp; Ladders</title>
+  <!--
+    Flutter web host page for the Snake & Ladders frontend.
+
+    During development the Dart app in `lib/main.dart` is served straight to
+    the Flutter web runtime (or precompiled for release builds). This page is
+    the light-theme shell that mounts the game and centers it on screen.
+  -->
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --panel: #ffffff;
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: #3e2723;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.4rem;
+      letter-spacing: 0.4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐍 &amp; 🪜 &nbsp;Snake and Ladders</h1>
+  <div id="game"></div>
+  <!-- The Dart entrypoint `lib/main.dart` supplies the interactive canvas. -->
+  <script src="main.dart.js" defer></script>
+</body>
+</html>
