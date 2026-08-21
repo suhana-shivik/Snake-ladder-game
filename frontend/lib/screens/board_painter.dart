@@ -9,7 +9,7 @@ import '../game/player.dart';
 
 /// Paints the 10x10 Snake & Ladders board: coloured cells, numbered corners,
 /// curved snakes, ladder rails + rungs, and the animated player tokens.
-class BoardPainter extends CustomPainter {
+class BoardPainter extends Painter {
   BoardPainter(this.game) {
     _size = FlSize(420, 480);
   }
@@ -126,8 +126,7 @@ class BoardPainter extends CustomPainter {
     }
 
     final double bodyWidth = cell * 0.42;
-    canvas.setStrokeStyle(SolidPaint());
-    canvas.setStrokeColor(colors[0]);
+    canvas.setStrokeStyle(colors[0]);
     canvas.setLineWidth(bodyWidth);
     canvas.setMiterLimit(20);
     _strokeQuadratic(canvas, top, [midX, midY], bottom);
@@ -181,8 +180,7 @@ class BoardPainter extends CustomPainter {
     final double r2x = b[0] + uy * railDist;
     final double r2y = b[1] - ux * railDist;
 
-    canvas.setStrokeStyle(SolidPaint());
-    canvas.setStrokeColor(0xFF8D6E63);
+    canvas.setStrokeStyle(0xFF8D6E63);
 
     // rails
     canvas.setLineWidth(cell * 0.12);
