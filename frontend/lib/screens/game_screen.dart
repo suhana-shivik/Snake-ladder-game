@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:time';
 import 'flutter';
 import '../game/dice.dart';
 import '../game/game.dart';
 import '../game/player.dart';
+import 'animation_controller.dart';
 import 'board_painter.dart';
 import 'dice_painter.dart';
 
@@ -15,23 +15,36 @@ import 'dice_painter.dart';
 ///   3. the roll / new-game controls
 ///   4. a turn / winner status line
 ///
-/// All board-game rules live in the pure Dart classes under `lib/game`; this
-/// screen only drives them and animates the result on the canvas painters.
+/// All board-game rules live in the pure Dart classes under `lib/game`; the
+/// timed animation sequence (dice spin + token hops) is delegated to
+/// [AnimationController] so the screen only binds the model to the painters.
 class GameScreen {
   GameScreen() {
     _game = new Game();
     _boardPainter = BoardPainter(_game);
     _dicePainter = DicePainter();
     _status = 'Snake & Ladders — press Roll Dice to begin.';
+
+    // Route animation events to the painters.
+    _animations = AnimationController();
+    _animations.onSpinFrame = _onSpinFrame;
+    _animations.onSettled = _onSettled;
+    _animations.onMoveStep = _onMoveStep;
+    _animations.onFinished = _onAnimationFinished;
   }
 
   final Game _game;
   final BoardPainter _boardPainter;
   final DicePainter _dicePainter;
+  final AnimationController _animations;
 
-  /// True while the roll animation or hop movement is still running.
-  bool _busy = false;
+  /// The player whose token is moving during a running turn animation.
+  Player? _movingPlayer;
+
   String _status;
+
+  /// True while a roll / movement animation is still running.
+  bool _busy = false;
 
   // ------------------------------------------------------------------ public
 
@@ -55,6 +68,7 @@ class GameScreen {
     _game.reset();
     _dicePainter.show(Dice.ONE);
     _busy = false;
+    _movingPlayer = null;
     _status = 'Snake & Ladders — press Roll Dice to begin.';
   }
 
@@ -62,31 +76,39 @@ class GameScreen {
 
   /// Runs one full turn: roll, dice animation, hop-by-hop movement, rules.
   Future<void> _playTurnAsync() async {
-    // 1. roll and immediately stage the spinning face sequence.
     final TurnResult result = _game.playTurn();
-    _dicePainter.setRoll(result.roll);
+    _movingPlayer = result.player;
 
-    // 2. rolling animation (~500ms): different faces flash past.
-    const int TRAIL_TICKS = 8;
-    for (int i = 0; i < TRAIL_TICKS; i++) {
-      _dicePainter.advanceFrame();
-      await sleep(55 milliseconds);
-    }
-    _dicePainter.show(result.roll);
+    await _animations.runTurn(result.roll, result.steps);
 
-    // 3. hop the token cell-by-cell along the walked path.
-    final Player mover = result.player;
-    for (final int cell in result.steps) {
-      mover.position = cell;
-      _boardPainter.refresh();
-      await sleep(150 milliseconds);
-    }
-
-    // 4. resolve rules and update the status line.
     _finishTurn(result);
     _busy = false;
     _boardPainter.refresh();
   }
+
+  // ------------------------------------------- AnimationController callbacks
+
+  void _onSpinFrame(int face) {
+    _dicePainter.show(face);
+  }
+
+  void _onSettled(int roll) {
+    _dicePainter.show(roll);
+  }
+
+  void _onMoveStep(int cell) {
+    final Player? mover = _movingPlayer;
+    if (mover != null) {
+      mover.position = cell;
+      _boardPainter.refresh();
+    }
+  }
+
+  void _onAnimationFinished() {
+    _boardPainter.refresh();
+  }
+
+  // ------------------------------------------------------------- turn status
 
   void _finishTurn(TurnResult result) {
     if (result.won) {

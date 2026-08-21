@@ -4,8 +4,10 @@ import '../lib/game/board.dart';
 import '../lib/game/dice.dart';
 import '../lib/game/game.dart';
 import '../lib/game/player.dart';
+import '../lib/screens/animation_controller.dart';
 
-/// Tiny dependency-free test harness for the game model.
+/// Tiny dependency-free test harness for the game model (and the animation
+/// timing constants shared by the screen).
 ///
 /// Run with:  dart run test/game_test.dart
 void main() {
@@ -92,6 +94,14 @@ void main() {
     expect(endGame.ended, 'game is marked as ended');
     expect(endGame.winner == endGame.players[0], 'winner is recorded');
   }
+
+  // ------------------------------------------------------- animation timing
+
+  final AnimationController animation = AnimationController();
+  expect(!animation.isRunning, 'animation controller starts idle');
+  expect(AnimationController.SPIN_FRAMES >= 1, 'dice is spun through frames');
+  expect(AnimationController.DICE_FRAME_MS > 0, 'dice frame cadence is positive');
+  expect(AnimationController.HOP_MS > 0, 'hop cadence is positive');
 
   // ------------------------------------------------------------- report
 

@@ -36,8 +36,10 @@ export class Game {
   winner: Player | null = null;
   rolls: number = 0;
 
-  constructor() {
-    this.id = randomUUID();
+  /// Creates a fresh match with a new id (or restores one from a persisted
+  /// id, e.g. when rebuilding state loaded out of Redis).
+  constructor(id?: string) {
+    this.id = id ?? randomUUID();
     this.players = [
       new Player(0, 'Red', '#FF3B30'),
       new Player(1, 'Blue', '#0A84FF'),
@@ -143,9 +145,7 @@ export class Game {
   }
 
   static fromJSON(state: GameState): Game {
-    const game = new Game();
-    // `new Game()` assigns a fresh id; override it with the persisted one.
-    (game as { id: string }).id = state.id;
+    const game = new Game(state.id);
     game.players = state.players.map(
       (p) => new Player(p.id, p.name, p.color, p.position),
     );
