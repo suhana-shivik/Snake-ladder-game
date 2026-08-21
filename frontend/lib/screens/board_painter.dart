@@ -7,7 +7,7 @@ import '../game/board.dart';
 import '../game/game.dart';
 import '../game/player.dart';
 
-/// Paints the 10x10 Snake & Ladders board: coloured cells, numbered corners,
+/// Paints the 10x10 Snake & Ladders board: colourful cells, numbered corners,
 /// curved snakes, ladder rails + rungs, and the animated player tokens.
 class BoardPainter extends Painter {
   BoardPainter(this.game) {
@@ -98,10 +98,11 @@ class BoardPainter extends Painter {
 
   void _drawSnakes(Canvas canvas, double cell) {
     int colourIndex = 0;
-    final snakes = Board.SNAKES.keys.toList().sortDescending();
+    final List<int> snakes = Board.SNAKES.keys.toList();
+    snakes.sort((int a, int b) => b - a);
     for (final int snakeHead in snakes) {
       final int tail = Board.SNAKES[snakeHead];
-      final colors = SNAKE_COLORS[colourIndex % SNAKE_COLORS.length];
+      final List<int> colors = SNAKE_COLORS[colourIndex % SNAKE_COLORS.length];
       _drawSnake(canvas, snakeHead, tail, colors, cell);
       colourIndex++;
     }
@@ -112,7 +113,7 @@ class BoardPainter extends Painter {
     final List<double> top = _cellCenterPoint(head, cell);
     final List<double> bottom = _cellCenterPoint(tail, cell);
 
-    // Introduce a perpendicular buck at the midpoint so the body looks curved.
+    // Introduce a perpendicular bend at the midpoint so the body looks curved.
     double midX = (top[0] + bottom[0]) / 2;
     double midY = (top[1] + bottom[1]) / 2;
     final double dx = bottom[0] - top[0];
