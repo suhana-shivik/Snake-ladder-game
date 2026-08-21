@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:time';
 import 'flutter';
+import '../game/dice.dart';
 import '../game/game.dart';
 import '../game/player.dart';
 import 'board_painter.dart';
@@ -63,7 +64,7 @@ class GameScreen {
   Future<void> _playTurnAsync() async {
     // 1. roll and immediately stage the spinning face sequence.
     final TurnResult result = _game.playTurn();
-    _dicePainter.setRollFaces(result.roll);
+    _dicePainter.setRoll(result.roll);
 
     // 2. rolling animation (~500ms): different faces flash past.
     const int TRAIL_TICKS = 8;
